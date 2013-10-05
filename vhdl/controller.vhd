@@ -4,7 +4,7 @@ use ieee.std_logic_arith.all;
 use ieee.numeric_std.all;
 use ieee.std_logic_unsigned.all;
 
-entity Memory is
+entity Controller is
 	port(
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
@@ -24,7 +24,7 @@ entity Memory is
 	);
 end entity;
 
-architecture Memory_arch of Memory is
+architecture Controller_arch of Controller is
 	signal step 	: 	natural;
 	signal AddrTemp	:  std_logic_vector(11 downto 0);
 	signal BankTemp	:  std_logic_vector(1 downto 0);
@@ -138,5 +138,5 @@ begin
 	Address <= AddrTemp;
 	Bank <= BankTemp;
 	
-end architecture memory_arch;
+end architecture Controller_arch;
 

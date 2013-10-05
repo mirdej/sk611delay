@@ -15,6 +15,8 @@ entity Controller is
 		Ram_RAS		: out std_logic;
 		Ram_DQM		: out std_logic;
 		Ram_Data		: inout std_logic_vector(7 downto 0);
+		Ram_Clk		: out std_logic;
+		Ram_CKE		: out std_logic;
 		
 		AD_Clk		: out std_logic;
 		AD_Data 		: in  std_logic_vector (7 downto 0);
@@ -23,6 +25,8 @@ entity Controller is
 		DA_Data 		: out std_logic_vector (7 downto 0)
 	);
 end entity;
+
+
 --------------------------------------------------------------------------------------------
 --OUTPUTS
 --Bit 										13		12		11	10	9	8	7	6	5	4	3	2	1		0
@@ -43,9 +47,11 @@ architecture Controller_arch of Controller is
 	signal AddrTemp	:  std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bits BANK
 																			--	
 	signal Counter		:  std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
+	signal TopCount	: natural;
 	signal DataTemp 	:  std_logic_vector (7 downto 0);
 	
 begin
+
 	process(Clk, ResetN)
 	begin
 		if (ResetN	= '0') then
@@ -60,7 +66,9 @@ begin
 			Ram_CAS <= '0';
 			Ram_RAS <= '0';
 			Ram_WE <= '0';
+			Ram_CKE <= '1';
 			Ram_Data <= "ZZZZZZZZ";
+			Ram_DQM <= '0';			-- think this can sty low
 
 		elsif ((Clk'event) and (Clk = '1')) then 
 			step <= step + 1;	
@@ -148,7 +156,9 @@ begin
 		end if;
 		
 	end process;
-	Ram_Address <= AddrTemp;
 	
+	Ram_Address <= AddrTemp;
+	Ram_Clk <= Clk;
+
 end architecture Controller_arch;
 

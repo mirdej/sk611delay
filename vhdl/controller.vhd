@@ -9,12 +9,12 @@ entity Controller is
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
 		
-		Address  	: out std_logic_vector(11 downto 0);
-		Bank 			: out std_logic_vector(1 downto 0);
-		WE				: out std_logic;
-		CAS 			: out std_logic;
-		RAS			: out std_logic;
-		RamData		: inout std_logic_vector(7 downto 0);
+		Ram_Address : out std_logic_vector(13 downto 0);  -- 12 bits Address / 2 bits BANK
+		Ram_WE		: out std_logic;
+		Ram_CAS 		: out std_logic;
+		Ram_RAS		: out std_logic;
+		Ram_DQM		: out std_logic;
+		Ram_Data		: inout std_logic_vector(7 downto 0);
 		
 		AD_Clk		: out std_logic;
 		AD_Data 		: in  std_logic_vector (7 downto 0);
@@ -23,33 +23,44 @@ entity Controller is
 		DA_Data 		: out std_logic_vector (7 downto 0)
 	);
 end entity;
+--------------------------------------------------------------------------------------------
+--OUTPUTS
+--Bit 										13		12		11	10	9	8	7	6	5	4	3	2	1		0
+--Pin											A11	A10	A9	A8	A7	A6	A5	A4	A3	A2	A1	A0	BA1	BA0
+																								
+--ROW											A11	A10	A9	A8	A7	A6	A5	A4	A3	A2	A1	A0	BA1	BA0
+--COL											X		0		C9	C8	C7	C6	C5	C4	C3	C2	C1	C0	BA1	BA0
+
+--------------------------------------------------------------------------------------------
+--COUNTER																								
+--Bit		23		22		21	20	19	18	17	16	15	14	13	12	11	10	9	8	7	6	5	4	3	2	1		0
+--			A11	A10	A9	A8	A7	A6	A5	A4	A3	A2	A1	A0	C9	C8	C7	C6	C5	C4	C3	C2	C1	C0	BA1	BA0
+--------------------------------------------------------------------------------------------
+
 
 architecture Controller_arch of Controller is
-	signal step 	: 	natural;
-	signal AddrTemp	:  std_logic_vector(11 downto 0);
-	signal BankTemp	:  std_logic_vector(1 downto 0);
+	signal step 		: 	natural;
+	signal AddrTemp	:  std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bits BANK
+																			--	
+	signal Counter		:  std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
 	signal DataTemp 	:  std_logic_vector (7 downto 0);
-	signal Row			:  std_logic_vector(11 downto 0);
-	signal Column		:  std_logic_vector(9 downto 0);
-
 	
 begin
 	process(Clk, ResetN)
 	begin
 		if (ResetN	= '0') then
 			AddrTemp <= (others=>'0');
-			BankTemp <= (others=>'0');
-			Column <= (others=>'0');
-			Row <= (others=>'0');
+			Counter <= (others=>'0');
 			step <= 0;
+			
 			AD_Clk <= '0';
 			DA_Clk <= '0';
-			CAS <= '0';
-			RAS <= '0';
-			WE <= '0';
 			DA_Data <= x"00";
-			AD_Clk <= '0';
-			RamData <= "ZZZZZZZZ";
+
+			Ram_CAS <= '0';
+			Ram_RAS <= '0';
+			Ram_WE <= '0';
+			Ram_Data <= "ZZZZZZZZ";
 
 		elsif ((Clk'event) and (Clk = '1')) then 
 			step <= step + 1;	
@@ -75,58 +86,60 @@ begin
 			case step is
 				when 0 =>
 					-- ACTIVATE
-					WE <= '1';
-					CAS <= '1';
-					RAS <= '0';
+					Ram_WE <= '1';
+					Ram_CAS <= '1';
+					Ram_RAS <= '0';
 					-- Also: Falling Edge DA-Converter
 					DA_Clk <= '0';
+					
 				when 2 => 
 					-- NOP ... but prepare column adress for next read
-					AddrTemp (11 downto 10) <= "00";  -- bit 10 needs to be 0 otherwise theres auto precharge
-					AddrTemp (9 downto 0) <= Column (9 downto 0) ;
+					AddrTemp (13 downto 12) <= "00";  											-- bit 10 needs to be 0 otherwise theres auto precharge
+					AddrTemp (11 downto 0) <= Counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
+				
 				when 3 => 
 					-- READ
-					WE <= '1';
-					CAS <= '0';
-					RAS <= '1';
+					Ram_WE <= '1';
+					Ram_CAS <= '0';
+					Ram_RAS <= '1';
+				
 				when 4 =>
 					-- Clock AD-Converter at least 12ns before we need Data
 					AD_Clk <= '1';
+				
 				when 6 =>
 					-- DATA from RAM ready-> buffer
-					DA_Data <= RamData;
+					DA_Data <= Ram_Data;
 				
 				when 7 =>
 					-- prep Data for write
-					RamData <= AD_Data;
+					Ram_Data <= AD_Data;
 				
 				when 8 =>
 					-- WRITE
-					WE <= '0';
-					CAS <= '0';
-					RAS <= '1';
+					Ram_WE <= '0';
+					Ram_CAS <= '0';
+					Ram_RAS <= '1';
 					-- Also: Clock DA-Converter > 10ns after Data Ready
 					DA_Clk <= '1';
+					
 				when 10 =>
 					-- Falling edge AD-Clock:
 					AD_Clk <= '0';
 					
 				when 11 =>
 					-- PRECHARGE
-					WE <= '0';
-					CAS <= '1';
-					RAS <= '0';
+					Ram_WE <= '0';
+					Ram_CAS <= '1';
+					Ram_RAS <= '0';
+					
 				when 13 =>
 					-- count up
-					BankTemp <= BankTemp + 1;
-					if (BankTemp = 0) then
-						Column <= Column + 1;
-						if (Column = 0) then
-							Row <= Row + 1;
-						end if;
-					end if;
+					Counter <= Counter + 1;
+					
 					-- prepare Row for next read
-					AddrTemp <= Row;
+					AddrTemp (13 downto 2) <= Counter(23 downto 12);		-- Row Address
+					AddrTemp (1 downto 0) <= Counter(1 downto 0);			-- Bank
 					
 					step <= 0;
 				when others => null;
@@ -135,8 +148,7 @@ begin
 		end if;
 		
 	end process;
-	Address <= AddrTemp;
-	Bank <= BankTemp;
+	Ram_Address <= AddrTemp;
 	
 end architecture Controller_arch;
 

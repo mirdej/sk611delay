@@ -82,7 +82,7 @@ begin
 					DA_Clk <= '0';
 				when 2 => 
 					-- NOP ... but prepare column adress for next read
-					AddrTemp (11 downto 10) <= '0';  -- bit 10 needs to be 0 otherwise theres auto precharge
+					AddrTemp (11 downto 10) <= "00";  -- bit 10 needs to be 0 otherwise theres auto precharge
 					AddrTemp (9 downto 0) <= Column (9 downto 0) ;
 				when 3 => 
 					-- READ

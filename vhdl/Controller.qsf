@@ -69,7 +69,7 @@ set_location_assignment PIN_18 -to DA_Data[5]
 set_location_assignment PIN_20 -to DA_Data[4]
 set_location_assignment PIN_21 -to DA_Data[3]
 set_location_assignment PIN_22 -to DA_Data[2]
-set_location_assignment PIN_83 -to DA_Clk
+set_location_assignment PIN_27 -to DA_Clk
 set_location_assignment PIN_83 -to Clk
 set_location_assignment PIN_52 -to Ram_Address[13]
 set_location_assignment PIN_67 -to Ram_Address[12]

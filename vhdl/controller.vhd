@@ -9,6 +9,10 @@ entity Controller is
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
 		
+		Led1			: out std_logic;
+		Led2			: out std_logic;
+		Led3			: out std_logic;
+		
 		Ram_Address : out std_logic_vector(13 downto 0);  -- 12 bits Address / 2 bits BANK
 		Ram_WE		: out std_logic;
 		Ram_CAS 		: out std_logic;
@@ -42,13 +46,21 @@ end entity;
 --------------------------------------------------------------------------------------------
 
 
+-- Clock: 133.33333Mhz -> clock period 7.5ns
+
 architecture Controller_arch of Controller is
+
+	type tState	is (StStart,StPowerup,StPrecharge,StRefresh,StRefresh2,StSetmode,StRun);
+
 	signal step 		: 	natural;
 	signal AddrTemp	:  std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bits BANK
 																			--	
 	signal Counter		:  std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
 	signal TopCount	: natural;
 	signal DataTemp 	:  std_logic_vector (7 downto 0);
+	
+	signal State	: tState;
+	
 	
 begin
 
@@ -71,10 +83,15 @@ begin
 			Ram_DQM <= '0';			-- think this can sty low
 
 		elsif ((Clk'event) and (Clk = '1')) then 
-			step <= step + 1;	
+		
+			case State is
 			
-			
-			
+				when StRun =>
+		
+-- ----------------------------------------------------------------------------------------
+--  													NORMAL OPERATION		
+-- ----------------------------------------------------------------------------------------
+	
 --												CS		RAS	CAS	WE
 --0		ACTIVATE 	(Bank / Row)	0		0		1		1		BA, RA	
 --1		NOP
@@ -91,6 +108,9 @@ begin
 --12		NOP
 --13		NOP
 			
+			step <= step + 1;	--	
+
+
 			case step is
 				when 0 =>
 					-- ACTIVATE
@@ -99,7 +119,11 @@ begin
 					Ram_RAS <= '0';
 					-- Also: Falling Edge DA-Converter
 					DA_Clk <= '0';
-					
+				
+				when 1 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+
 				when 2 => 
 					-- NOP ... but prepare column adress for next read
 					AddrTemp (13 downto 12) <= "00";  											-- bit 10 needs to be 0 otherwise theres auto precharge
@@ -112,6 +136,8 @@ begin
 					Ram_RAS <= '1';
 				
 				when 4 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
 					-- Clock AD-Converter at least 12ns before we need Data
 					AD_Clk <= '1';
 				
@@ -131,6 +157,10 @@ begin
 					-- Also: Clock DA-Converter > 10ns after Data Ready
 					DA_Clk <= '1';
 					
+				when 9 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+					
 				when 10 =>
 					-- Falling edge AD-Clock:
 					AD_Clk <= '0';
@@ -140,6 +170,10 @@ begin
 					Ram_WE <= '0';
 					Ram_CAS <= '1';
 					Ram_RAS <= '0';
+					
+				when 12 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
 					
 				when 13 =>
 					-- count up
@@ -152,8 +186,97 @@ begin
 					step <= 0;
 				when others => null;
 			end case;
-			
-		end if;
+-- ----------------------------------------------------------------------------------------
+--																					END NORMAL OPERATION
+
+
+
+
+-- ----------------------------------------------------------------------------------------
+--  													SDRAM INITIALIZATION		
+-- ----------------------------------------------------------------------------------------
+			when StStart =>
+				-- send NOPs for at least 100uS, > 13333 clock cycles
+				TopCount <= 14000;
+				State <= StPowerup;
+				
+				-- NOP
+				Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+																									--  wait 100uS for powerup
+			when StPowerup =>
+				Counter <= Counter + 1;
+				if (Counter > TopCount) then
+					Counter <= (others=>'0');
+					State <= StPrecharge;
+					TopCount <= 4; -- precharge for at least 20 ns -> 3 clock cycles
+					
+					-- SEND PALL (Precharge All)
+					AddrTemp <= (others=>'1');		-- bit 10 must be high for precharge all command
+					Ram_WE <= '0'; Ram_CAS <= '1'; Ram_RAS <= '0';
+				
+				end if;
+																									--  Precharge All Banks
+			when StPrecharge =>
+	
+				-- NOP
+				Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+	
+				Counter <= Counter + 1;
+				if (Counter > TopCount) then
+					Counter <= (others=>'0');
+					State <= StRefresh;
+					TopCount <= 10; -- autorefresh for at least 67 ns -> 10 clock cycles
+					
+					-- SEND AUTO REFRESH
+					AddrTemp <= (others=>'0');
+					Ram_WE <= '1'; Ram_CAS <= '0'; Ram_RAS <= '0';
+				end if;
+																									--  Auto Refresh
+			when StRefresh =>
+				-- NOP
+				Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+	
+				Counter <= Counter + 1;
+				if (Counter > TopCount) then
+					Counter <= (others=>'0');
+					State <= StRefresh2;
+					TopCount <= 10; -- autorefresh for at least 67 ns -> 10 clock cycles
+					
+					-- SEND AUTO REFRESH
+					AddrTemp <= (others=>'0');
+					Ram_WE <= '1'; Ram_CAS <= '0'; Ram_RAS <= '0';
+				end if;
+																									--  Auto Refresh Again
+			when StRefresh2 =>
+				-- NOP
+				Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+	
+				Counter <= Counter + 1;
+				if (Counter > TopCount) then
+					Counter <= (others=>'0');
+					State <= StSetmode;
+					TopCount <= 10; 
+					
+					-- SEND MODE REGISTER SET
+					AddrTemp <= (others=>'0');
+					AddrTemp (7 downto 6) <= "11";				-- set bits 5 and 4 of Mode register high for CAS latency of 3 
+																			-- (bits are shifted by two because of bank bits)
+					Ram_WE <= '0'; Ram_CAS <= '0'; Ram_RAS <= '0';
+				end if;
+																									--  Set Mode and Go
+			when StSetmode =>
+				-- NOP
+				Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+				State <= StRun;
+				TopCount <= 16#FFFFFF#;  	-- go for maximum delay
+				
+-- ----------------------------------------------------------------------------------------
+--																					END SDRAM INITIALIZATION	
+
+			when others =>
+				State <= StStart;
+			end case;
+		end if; -- Rising Clock Edge
 		
 	end process;
 	

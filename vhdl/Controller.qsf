@@ -104,3 +104,6 @@ set_location_assignment PIN_62 -to TCK
 set_location_assignment PIN_14 -to TDI
 set_location_assignment PIN_71 -to TDO
 set_location_assignment PIN_23 -to TMS
+set_location_assignment PIN_35 -to Led1
+set_location_assignment PIN_36 -to Led2
+set_location_assignment PIN_37 -to Led3

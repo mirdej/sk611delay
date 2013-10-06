@@ -117,9 +117,8 @@ architecture Controller_arch of Controller is
 	signal wait_counter 			: integer range 0 to 15; -- how many cycles wait until next command can be issued
 	signal twice_autorefresh 	: std_logic; -- double autorefresh command needed in startup sequence
 
-	signal CAS_counter : integer range 0 to 3;
 	signal execute_nop : std_logic;
-
+	signal blink : std_logic;
 	
 begin
 
@@ -133,9 +132,12 @@ begin
 			startup_pending <= '1';	
 			wait_counter <= 0;	 
 			twice_autorefresh <= '1';
-			CAS_counter <= 0;  
 			startup_timer <= 0;
-			execute_nop <= '0';	 			
+			execute_nop <= '0';	
+
+			LED1 <= '1';
+			LED2 <= '0';
+			blink <= '0';
 			
 			AD_Clk <= '0';
 			DA_Clk <= '0';
@@ -272,7 +274,13 @@ begin
 				-- ACTIVE command
 				-------------------------
 				when running =>
-		
+				LED1 <= '0';
+				LED2 <= '1';
+				
+				if (byte_counter = 0) then 
+					blink <= NOT blink;
+				end if;
+
 -- ----------------------------------------------------------------------------------------
 --  													NORMAL OPERATION		
 -- ----------------------------------------------------------------------------------------
@@ -387,6 +395,7 @@ begin
 	
 	Ram_Address <= address_temp;
 	Ram_Clk <= Clk;
-
+	LED3 <= blink;
+	
 end architecture Controller_arch;
 

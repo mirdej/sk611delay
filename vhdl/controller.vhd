@@ -69,7 +69,7 @@ architecture Controller_arch of Controller is
 	-- "011" b.s. of 8
 	constant burst_size : std_logic_vector(2 downto 0) := "011";
 	
-	constant CLOCK_PERIOD : positive := 8; -- in ns, should be 7.5
+	constant CLOCK_PERIOD : positive := 15; -- in ns, should be 7.5
 	-- timing constants in ns:
 	constant tRC  : positive := 75;
 	constant tRCD : positive := 20;
@@ -120,6 +120,12 @@ architecture Controller_arch of Controller is
 	signal execute_nop : std_logic;
 	signal blink : std_logic;
 	
+	signal Data_From_Ram_ff: std_logic_vector(7 downto 0);
+	signal Data_From_Ram_f: std_logic_vector(7 downto 0);
+
+	signal Data_From_AD_ff: std_logic_vector(7 downto 0);
+	signal Data_From_AD_f: std_logic_vector(7 downto 0);
+	
 begin
 
 	process(Clk, ResetN)
@@ -135,9 +141,9 @@ begin
 			startup_timer <= 0;
 			execute_nop <= '0';	
 
-			LED1 <= '1';
-			LED2 <= '0';
-			blink <= '0';
+			LED1 <= '0';		-- LEDs are inversed: 0 means On
+			LED2 <= '1';
+			blink <= '1';
 			
 			AD_Clk <= '0';
 			DA_Clk <= '0';
@@ -274,12 +280,9 @@ begin
 				-- ACTIVE command
 				-------------------------
 				when running =>
-				LED1 <= '0';
-				LED2 <= '1';
-				
-				if (byte_counter = 0) then 
-					blink <= NOT blink;
-				end if;
+				LED1 <= '1';
+				LED2 <= '0';
+			
 
 -- ----------------------------------------------------------------------------------------
 --  													NORMAL OPERATION		
@@ -336,11 +339,15 @@ begin
 				
 				when 6 =>
 					-- DATA from RAM ready-> buffer
-					DA_Data <= Ram_Data;
+					Data_From_Ram_f <= Ram_Data;
+				--	Data_From_Ram_ff <= Data_From_Ram_f;
+					DA_Data <= Data_From_Ram_f;
 				
 				when 7 =>
 					-- prep Data for write
-					Ram_Data <= AD_Data;
+					Data_From_AD_f <= AD_Data;
+				--	Data_From_AD_ff <= Data_From_AD_f;
+					Ram_Data <= Data_From_AD_f;
 				
 				when 8 =>
 					-- WRITE
@@ -371,6 +378,10 @@ begin
 				when 13 =>
 					-- count up
 					byte_counter <= byte_counter + 1;
+					if (byte_counter = x"0FFFFF") then 
+							blink <= NOT blink;
+							byte_counter <= (others => '0');
+					end if;
 					
 					-- prepare Row for next read
 					address_temp (13 downto 2) <= byte_counter(23 downto 12);		-- Row Address

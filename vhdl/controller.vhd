@@ -108,16 +108,28 @@ signal ram_nops				: integer range 0 to tSTARTUP_NOP_CYCLES;
 signal address_temp			: std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bits BANK--	
 signal byte_counter			:  std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
 
+signal slow_clk				: std_logic;
 
 signal blink 			: std_logic;
 signal ada_clk			: std_logic;
 
-signal in_buf			: std_logic_vector (7 downto 0);
+signal da_buf			: std_logic_vector (7 downto 0);
+signal ad_buf			: std_logic_vector (7 downto 0);
+signal OEn				: std_logic;
 
 begin
 	-- MASTER CLOCK ------------------------------------------------------------
+		process(Clk, ResetN)
+		begin
+				if (ResetN	= '0') then
+	slow_clk <= '0';
+				elsif ((Clk'event) and (Clk = '1')) then 
+				slow_clk <= not slow_clk;
+				end if;
+		end process;
+
 	-- Control the state machine
-	process(Clk, ResetN)
+	process(slow_clk, ResetN)
 	begin
 		if (ResetN	= '0') then
 		-- do reset stuff
@@ -134,11 +146,12 @@ begin
 			Ram_WE <= '0';
 			--Ram_Data <= "ZZZZZZZZ";
 			
-			DA_Data <= (others => '0');
-			in_buf <= x"34";
+			--DA_Data <= (others => '0');
 		
-		elsif ((Clk'event) and (Clk = '1')) then 
+		elsif ((slow_clk'event) and (slow_clk = '1')) then 
 			LED1 <= '0';		
+   		  --	ad_buf <= AD_Data;                    
+        --	DA_Data <= da_buf;                  
 
 			case ram_state is
 				---------------------------------
@@ -217,7 +230,7 @@ begin
 
 					-- count up
 					byte_counter <= byte_counter + 1;
-					if (byte_counter = x"9FFFFF") then 
+					if (byte_counter = x"0FFFFF") then 
 							blink <= NOT blink;
 							byte_counter <= (others => '0');
 					end if;
@@ -233,6 +246,7 @@ begin
 				when ram_read =>
 					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '1';
 					Ram_DQM <= '0';
+					OEn <= '1';		-- disable output on data bus
 					address_temp (13 downto 12) <= "00";  											-- bit 10 needs to be 0 otherwise theres auto precharge
 					address_temp (11 downto 0) <= byte_counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
 					ram_state <= nop_dqm_down;
@@ -254,9 +268,6 @@ begin
 				when ram_get_data =>
 					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
 					ram_state <= ram_write;
-					--Ram_Data <= x"2C";
-					DA_Data <= Ram_Data;
-					ram_state <= ram_write;
 
 				---------------------------------
 				-- Write
@@ -264,8 +275,7 @@ begin
 				when ram_write =>
 					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '0';
 					Ram_DQM <= '0';
-					in_buf <= AD_Data;
-					Ram_Data <= in_buf;	
+					OEn <= '0';
 					ram_nops <= 1;
 					ram_state <= nop;
 					ram_next_state <= precharge;
@@ -275,9 +285,21 @@ begin
 		end if;		
 	end process ;
 	
-	Ram_clk <= not Clk;
+	process (ada_clk) 
+	begin
+		if ((ada_clk'event) and (ada_clk = '0')) then 
+			ad_buf <= AD_Data;
+			DA_Data <= da_buf;
+		end if;
+	end process;
+	
+	da_buf <= Ram_Data when (OEn = '1') else (others => 'Z');
+	Ram_Data <= ad_buf when (OEn = '0') else (others => 'Z');
+	
+	
+	Ram_clk <= not slow_clk;
 	AD_Clk <= ada_clk;
-	DA_Clk <= ada_clk;
+	DA_Clk <= not ada_clk;
 	Ram_Address <= address_temp;
 	LED3 <= blink;
 	

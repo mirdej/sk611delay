@@ -112,3 +112,4 @@ set_global_assignment -name EDA_TEST_BENCH_RUN_SIM_FOR "50 ms" -section_id test_
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_controller -section_id test_controller
 set_global_assignment -name EDA_TEST_BENCH_FILE simulation/modelsim/testbench.vhd -section_id test_controller
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"
+set_location_assignment PIN_74 -to Ram_DQM

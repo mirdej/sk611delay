@@ -44,9 +44,9 @@ entity Controller is
 		DA_Data 		: out std_logic_vector (7 downto 0);
 
 		Ram_Address : out std_logic_vector(13 downto 0);  -- 12 bits Address / 2 bits BANK
-		Ram_WE		: out std_logic;
-		Ram_CAS 		: out std_logic;
 		Ram_RAS		: out std_logic;
+		Ram_CAS 		: out std_logic;
+		Ram_WE		: out std_logic;
 		Ram_Data		: inout std_logic_vector(7 downto 0);
 		Ram_Clk		: out std_logic;
 		Ram_DQM		: out std_logic;
@@ -60,8 +60,6 @@ end entity;
 -- Architecture
 
 architecture Controller_arch of Controller is
-
-constant MAX_NOPS : positive := 10;
 
 	constant CLOCK_PERIOD : positive := 6; 
 
@@ -84,15 +82,18 @@ constant MAX_NOPS : positive := 10;
 	constant tREF_CYCLES : natural := tREF / CLOCK_PERIOD;	 --	tREF_time = tREF_CYCLES + 1
 	constant tRFC_CYCLES : NATURAL := tRFC / CLOCK_PERIOD;	 -- tRFC_time = tRFC_CYCLES + 1
 	constant tWR_CYCLES  : natural := tWR / CLOCK_PERIOD; 	 --	tWR_time = tWR_CYCLES + 1
+	constant tSTARTUP_NOP_CYCLES : positive := 10;-- tSTARTUP_NOP / (2*CLOCK_PERIOD);
 
+	constant CAS_LATENCY : positive := 3; 
 
 type ram_state_type is (
 		init,
 		set_mode_register,
 		precharge,
 		auto_refresh,
-		act,
+		activate,
 		ram_read,
+		nop_dqm_down,
 		ram_write,
 		nop
 	);
@@ -100,11 +101,13 @@ type ram_state_type is (
 signal another_refresh 		: std_logic;	
 signal ram_state 			: ram_state_type;
 signal ram_next_state		: ram_state_type;
-signal ram_nops				: integer range 0 to MAX_NOPS;
+signal ram_nops				: integer range 0 to tSTARTUP_NOP_CYCLES;
 
 signal address_temp			: std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bits BANK--	
+signal byte_counter			:  std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
 
 
+signal blink 			: std_logic;
 
 
 begin
@@ -117,22 +120,26 @@ begin
 			
 			ram_state <= init;
 			address_temp <= (others => '0');
-			Ram_RAS <= '1';
-			Ram_CAS <= '1';
-			Ram_WE <= '1';	
+			byte_counter <= (others=>'0');
+			Ram_RAS <= '1'; 	Ram_CAS <= '1';		Ram_WE <= '1';	
 			LED1 <= '1';		
 			LED2 <= '0';
-	
+			blink <= '0';
+			Ram_CAS <= '0';
+			Ram_RAS <= '0';
+			Ram_WE <= '0';
+			Ram_Data <= "ZZZZZZZZ";
+
 		elsif ((Clk'event) and (Clk = '1')) then 
-			
 
 			case ram_state is
-			
+				---------------------------------
+				-- Nop
+				---------------------------------
 				when nop =>
-					Ram_RAS <= '1';
-					Ram_CAS <= '1';
-					Ram_WE <= '1';	
-				
+					Ram_RAS <= '1'; 	Ram_CAS <= '1';		Ram_WE <= '1';	
+					Ram_DQM <= '1';
+
 					if (ram_nops = 0) then
 						ram_state <= ram_next_state;
 					else
@@ -146,28 +153,28 @@ begin
 					Ram_DQM <= '1';
 					ram_next_state <= precharge;
 					ram_state <= nop;
-					ram_nops <= MAX_NOPS;
+					ram_nops <= tSTARTUP_NOP_CYCLES;
 					another_refresh <= '1';
 
 				---------------------------------
 				-- Precharge
 				---------------------------------			
 				when precharge =>
-					Ram_RAS <= '0';
-					Ram_CAS <= '1';
-					Ram_WE <= '0';	 
-					address_temp(12) <= '1'; 		-- precharge all banks  (A10 = 1)
-					ram_nops <= 2;					-- do we care ????
+					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '0';	 
+					ram_nops <= tRP_CYCLES;					
 					ram_state <= nop;
-					ram_next_state <= auto_refresh;
+					address_temp(12) <= '1'; 			-- precharge all banks  (A10 = 1)
+					if (another_refresh = '1') then 		-- we're in startup sequence
+						ram_next_state <= auto_refresh;
+					else
+						ram_next_state <= activate;
+					end if;
 					
 				---------------------------------
 				-- Auto Refresh
 				---------------------------------			
 				when auto_refresh =>
-					Ram_RAS <= '0';
-					Ram_CAS <= '0';
-					Ram_WE <= '1';	 
+					Ram_RAS <= '0';		Ram_CAS <= '0';		Ram_WE <= '1';	 
 					ram_nops <= tRFC_CYCLES;
 					ram_state <= nop;
 					if (another_refresh = '1') then 
@@ -181,14 +188,63 @@ begin
 				-- Set Mode
 				---------------------------------			
 				when set_mode_register =>
-					Ram_RAS <= '0';
-					Ram_CAS <= '0';
-					Ram_WE  <= '0'; 
+					Ram_RAS <= '0';		Ram_CAS <= '0';		Ram_WE  <= '0'; 
 					address_temp <= (others=>'0');
 					address_temp (7 downto 6) <= "11";				-- set bits 5 and 4 of Mode register high for CAS latency of 3 
 					ram_nops <= tMRD_CYCLES;
 					ram_state <= nop;
-					ram_next_state <= act;
+					ram_next_state <= precharge;
+
+
+				---------------------------------
+				-- Activate
+				---------------------------------			
+				when activate =>
+					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '1';
+
+					Ram_Data <= "ZZZZZZZZ";
+
+					-- count up
+					byte_counter <= byte_counter + 1;
+					if (byte_counter = x"9FFFFF") then 
+							blink <= NOT blink;
+							byte_counter <= (others => '0');
+					end if;
+					address_temp (13 downto 2) <= byte_counter(23 downto 12);		-- Row Address
+					address_temp (1 downto 0) <= byte_counter(1 downto 0);			-- Bank
+					ram_nops <= tRCD_CYCLES;
+					ram_state <= nop;
+					ram_next_state <= ram_read;
+					
+				---------------------------------
+				-- Read
+				---------------------------------			
+				when ram_read =>
+					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '1';
+					Ram_DQM <= '0';
+					address_temp (13 downto 12) <= "00";  											-- bit 10 needs to be 0 otherwise theres auto precharge
+					address_temp (11 downto 0) <= byte_counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
+					ram_state <= nop_dqm_down;
+					
+				---------------------------------
+				-- Keep DQM down once
+				---------------------------------			
+				when nop_dqm_down =>
+					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
+					ram_nops <= 1;
+					ram_state <= nop;
+					ram_next_state <= ram_write;
+		
+				---------------------------------
+				-- Write
+				---------------------------------			
+				when ram_write =>
+					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '0';
+					Ram_DQM <= '0';
+					Ram_Data <= x"F2";	
+					ram_nops <= 1;
+					ram_state <= nop;
+					ram_next_state <= precharge;
 					
 				when others => null;
 			end case;
@@ -196,4 +252,7 @@ begin
 	end process ;
 	
 	Ram_clk <= not Clk;
+	Ram_Address <= address_temp;
+	LED3 <= blink;
+	
 end architecture Controller_arch;

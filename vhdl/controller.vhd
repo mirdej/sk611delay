@@ -57,16 +57,16 @@ entity Controller is
 end entity;
 
 --------------------------------------------------------------------------------------------
--- Architecture
+-- Architectureentity Controller is
 
 architecture Controller_arch of Controller is
 
-	constant CLOCK_PERIOD : positive := 6; 
+	constant CLOCK_PERIOD : positive := 7; 
 
-	constant tRC  : positive := 75;
-	constant tRCD : positive := 20;
-	constant tRP  : positive := 20;
-	constant tREF : positive := 15000; -- for 1 row (for 4096 you need to divide number by 4096)        
+	constant tRC  : positive := 68;			-- Command Period (PRE to PRE / ACT to ACT)
+	constant tRCD : positive := 20 ;		-- Active Command To Read / Write Command Delay Time
+	constant tRP  : positive := 20;			-- Command Period (PRE to ACT)
+	constant tREF : positive := 15000; 		-- for 1 row (for 4096 you need to divide number by 4096)        
 	constant tRFC : positive := 65; 
 	constant tWR  : positive := CLOCK_PERIOD + 7; 
 	-- sdram initialization time
@@ -77,12 +77,13 @@ architecture Controller_arch of Controller is
 	-- actual cycles will be one cycle longer (every) because of state transition time (1 cycle time)
 	constant tRC_CYCLES  : natural := tRC  / CLOCK_PERIOD;	 -- tRC_time = tRC_CYCLES + 1
 	constant tRCD_CYCLES : natural := tRCD / CLOCK_PERIOD;	 --	tRCD_time = tRCD_CYCLES + 1
-	constant tRP_CYCLES  : natural := tRP  / CLOCK_PERIOD;	 -- tRP_time = tRP_CYCLES + 1
+	constant tRP_CYCLES  : natural := tRP  / CLOCK_PERIOD - 1;	 -- tRP_time = tRP_CYCLES + 1
 	constant tMRD_CYCLES : natural := 2; 					 -- tMRD_time = 2 tCK
 	constant tREF_CYCLES : natural := tREF / CLOCK_PERIOD;	 --	tREF_time = tREF_CYCLES + 1
 	constant tRFC_CYCLES : NATURAL := tRFC / CLOCK_PERIOD;	 -- tRFC_time = tRFC_CYCLES + 1
 	constant tWR_CYCLES  : natural := tWR / CLOCK_PERIOD; 	 --	tWR_time = tWR_CYCLES + 1
-	constant tSTARTUP_NOP_CYCLES : positive := 10;-- tSTARTUP_NOP / (2*CLOCK_PERIOD);
+	--constant tSTARTUP_NOP_CYCLES : positive := 10;-- tSTARTUP_NOP / (2*CLOCK_PERIOD);
+constant tSTARTUP_NOP_CYCLES : positive := tSTARTUP_NOP / (2*CLOCK_PERIOD);
 
 	constant CAS_LATENCY : positive := 3; 
 
@@ -93,6 +94,7 @@ type ram_state_type is (
 		auto_refresh,
 		activate,
 		ram_read,
+		ram_get_data,
 		nop_dqm_down,
 		ram_write,
 		nop
@@ -108,7 +110,9 @@ signal byte_counter			:  std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bi
 
 
 signal blink 			: std_logic;
+signal ada_clk			: std_logic;
 
+signal in_buf			: std_logic_vector (7 downto 0);
 
 begin
 	-- MASTER CLOCK ------------------------------------------------------------
@@ -128,9 +132,13 @@ begin
 			Ram_CAS <= '0';
 			Ram_RAS <= '0';
 			Ram_WE <= '0';
-			Ram_Data <= "ZZZZZZZZ";
-
+			--Ram_Data <= "ZZZZZZZZ";
+			
+			DA_Data <= (others => '0');
+			in_buf <= x"34";
+		
 		elsif ((Clk'event) and (Clk = '1')) then 
+			LED1 <= '0';		
 
 			case ram_state is
 				---------------------------------
@@ -170,6 +178,8 @@ begin
 						ram_next_state <= activate;
 					end if;
 					
+					ada_clk <= '1';
+					
 				---------------------------------
 				-- Auto Refresh
 				---------------------------------			
@@ -201,8 +211,9 @@ begin
 				---------------------------------			
 				when activate =>
 					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '1';
+					LED2 <= '1';
 
-					Ram_Data <= "ZZZZZZZZ";
+					--Ram_Data <= "ZZZZZZZZ";
 
 					-- count up
 					byte_counter <= byte_counter + 1;
@@ -226,6 +237,8 @@ begin
 					address_temp (11 downto 0) <= byte_counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
 					ram_state <= nop_dqm_down;
 					
+					ada_clk <= '0';
+
 				---------------------------------
 				-- Keep DQM down once
 				---------------------------------			
@@ -233,15 +246,26 @@ begin
 					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
 					ram_nops <= 1;
 					ram_state <= nop;
-					ram_next_state <= ram_write;
+					ram_next_state <= ram_get_data;
 		
+			---------------------------------
+				-- Copy read data to DAC
+				---------------------------------			
+				when ram_get_data =>
+					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
+					ram_state <= ram_write;
+					--Ram_Data <= x"2C";
+					DA_Data <= Ram_Data;
+					ram_state <= ram_write;
+
 				---------------------------------
 				-- Write
 				---------------------------------			
 				when ram_write =>
 					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '0';
 					Ram_DQM <= '0';
-					Ram_Data <= x"F2";	
+					in_buf <= AD_Data;
+					Ram_Data <= in_buf;	
 					ram_nops <= 1;
 					ram_state <= nop;
 					ram_next_state <= precharge;
@@ -252,6 +276,8 @@ begin
 	end process ;
 	
 	Ram_clk <= not Clk;
+	AD_Clk <= ada_clk;
+	DA_Clk <= ada_clk;
 	Ram_Address <= address_temp;
 	LED3 <= blink;
 	

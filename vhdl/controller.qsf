@@ -77,3 +77,38 @@ set_location_assignment PIN_41 -to DA_Data[3]
 set_location_assignment PIN_42 -to DA_Data[2]
 set_location_assignment PIN_43 -to DA_Data[1]
 set_location_assignment PIN_44 -to DA_Data[0]
+set_location_assignment PIN_87 -to Ram_Address[13]
+set_location_assignment PIN_88 -to Ram_Address[12]
+set_location_assignment PIN_86 -to Ram_Address[11]
+set_location_assignment PIN_85 -to Ram_Address[10]
+set_location_assignment PIN_84 -to Ram_Address[9]
+set_location_assignment PIN_83 -to Ram_Address[8]
+set_location_assignment PIN_82 -to Ram_Address[7]
+set_location_assignment PIN_81 -to Ram_Address[6]
+set_location_assignment PIN_92 -to Ram_Address[5]
+set_location_assignment PIN_91 -to Ram_Address[4]
+set_location_assignment PIN_90 -to Ram_Address[3]
+set_location_assignment PIN_89 -to Ram_Address[2]
+set_location_assignment PIN_96 -to Ram_CAS
+set_location_assignment PIN_98 -to Ram_Data[3]
+set_location_assignment PIN_99 -to Ram_Data[2]
+set_location_assignment PIN_100 -to Ram_Data[1]
+set_location_assignment PIN_1 -to Ram_Data[0]
+set_location_assignment PIN_75 -to Ram_Data[7]
+set_location_assignment PIN_76 -to Ram_Data[6]
+set_location_assignment PIN_77 -to Ram_Data[5]
+set_location_assignment PIN_78 -to Ram_Data[4]
+set_location_assignment PIN_95 -to Ram_RAS
+set_location_assignment PIN_97 -to Ram_WE
+set_location_assignment PIN_4 -to Ram_Clk
+set_location_assignment PIN_3 -to Ram_Address[1]
+set_location_assignment PIN_2 -to Ram_Address[0]
+set_location_assignment PIN_51 -to btn1
+set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
+set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH test_controller -section_id eda_simulation
+set_global_assignment -name EDA_TEST_BENCH_NAME test_controller -section_id eda_simulation
+set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id test_controller
+set_global_assignment -name EDA_TEST_BENCH_RUN_SIM_FOR "50 ms" -section_id test_controller
+set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME test_controller -section_id test_controller
+set_global_assignment -name EDA_TEST_BENCH_FILE simulation/modelsim/testbench.vhd -section_id test_controller
+set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"

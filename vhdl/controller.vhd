@@ -63,10 +63,26 @@ architecture Controller_arch of Controller is
 
 	constant CLOCK_PERIOD : positive := 7; 
 
+<<<<<<< HEAD
 	constant tRC  : positive := 68;			-- Command Period (PRE to PRE / ACT to ACT)
 	constant tRCD : positive := 20 ;		-- Active Command To Read / Write Command Delay Time
 	constant tRP  : positive := 20;			-- Command Period (PRE to ACT)
 	constant tREF : positive := 15000; 		-- for 1 row (for 4096 you need to divide number by 4096)        
+=======
+-- burst size	   
+	-- "000" burst size of 1
+	-- "001" b.s. of 2
+	-- "010" b.s. of 4
+	-- "011" b.s. of 8
+	constant burst_size : std_logic_vector(2 downto 0) := "011";
+	
+	constant CLOCK_PERIOD : positive := 15; -- in ns, should be 7.5
+	-- timing constants in ns:
+	constant tRC  : positive := 75;
+	constant tRCD : positive := 20;
+	constant tRP  : positive := 20;
+	constant tREF : positive := 15000; -- for 1 row (for 4096 you need to divide number by 4096)        
+>>>>>>> 40d288d7d79e1be06d9d1c0c8a838702118c9f4c
 	constant tRFC : positive := 65; 
 	constant tWR  : positive := CLOCK_PERIOD + 7; 
 	-- sdram initialization time
@@ -117,6 +133,18 @@ signal da_buf			: std_logic_vector (7 downto 0);
 signal ad_buf			: std_logic_vector (7 downto 0);
 signal OEn				: std_logic;
 
+<<<<<<< HEAD
+=======
+	signal execute_nop : std_logic;
+	signal blink : std_logic;
+	
+	signal Data_From_Ram_ff: std_logic_vector(7 downto 0);
+	signal Data_From_Ram_f: std_logic_vector(7 downto 0);
+
+	signal Data_From_AD_ff: std_logic_vector(7 downto 0);
+	signal Data_From_AD_f: std_logic_vector(7 downto 0);
+	
+>>>>>>> 40d288d7d79e1be06d9d1c0c8a838702118c9f4c
 begin
 	-- MASTER CLOCK ------------------------------------------------------------
 		process(Clk, ResetN)
@@ -137,10 +165,29 @@ begin
 			ram_state <= init;
 			address_temp <= (others => '0');
 			byte_counter <= (others=>'0');
+<<<<<<< HEAD
 			Ram_RAS <= '1'; 	Ram_CAS <= '1';		Ram_WE <= '1';	
 			LED1 <= '1';		
 			LED2 <= '0';
 			blink <= '0';
+=======
+
+			state <= initialize; 
+			startup_pending <= '1';	
+			wait_counter <= 0;	 
+			twice_autorefresh <= '1';
+			startup_timer <= 0;
+			execute_nop <= '0';	
+
+			LED1 <= '0';		-- LEDs are inversed: 0 means On
+			LED2 <= '1';
+			blink <= '1';
+			
+			AD_Clk <= '0';
+			DA_Clk <= '0';
+			DA_Data <= x"00";
+
+>>>>>>> 40d288d7d79e1be06d9d1c0c8a838702118c9f4c
 			Ram_CAS <= '0';
 			Ram_RAS <= '0';
 			Ram_WE <= '0';
@@ -206,6 +253,18 @@ begin
 					else 
 						ram_next_state <= set_mode_register;
 					end if;
+<<<<<<< HEAD
+=======
+				end if;	  
+				
+				-------------------------
+				-- ACTIVE command
+				-------------------------
+				when running =>
+				LED1 <= '1';
+				LED2 <= '0';
+			
+>>>>>>> 40d288d7d79e1be06d9d1c0c8a838702118c9f4c
 
 				---------------------------------
 				-- Set Mode
@@ -228,12 +287,76 @@ begin
 
 					--Ram_Data <= "ZZZZZZZZ";
 
+<<<<<<< HEAD
+=======
+				when 2 => 
+					-- NOP ... but prepare column adress for next read
+					address_temp (13 downto 12) <= "00";  											-- bit 10 needs to be 0 otherwise theres auto precharge
+					address_temp (11 downto 0) <= byte_counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
+				
+				when 3 => 
+					-- READ
+					Ram_WE <= '1';
+					Ram_CAS <= '0';
+					Ram_RAS <= '1';
+				
+				when 4 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+					-- Clock AD-Converter at least 12ns before we need Data
+					AD_Clk <= '1';
+				
+				when 6 =>
+					-- DATA from RAM ready-> buffer
+					Data_From_Ram_f <= Ram_Data;
+				--	Data_From_Ram_ff <= Data_From_Ram_f;
+					DA_Data <= Data_From_Ram_f;
+				
+				when 7 =>
+					-- prep Data for write
+					Data_From_AD_f <= AD_Data;
+				--	Data_From_AD_ff <= Data_From_AD_f;
+					Ram_Data <= Data_From_AD_f;
+				
+				when 8 =>
+					-- WRITE
+					Ram_WE <= '0';
+					Ram_CAS <= '0';
+					Ram_RAS <= '1';
+					-- Also: Clock DA-Converter > 10ns after Data Ready
+					DA_Clk <= '1';
+					
+				when 9 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+					
+				when 10 =>
+					-- Falling edge AD-Clock:
+					AD_Clk <= '0';
+					
+				when 11 =>
+					-- PRECHARGE
+					Ram_WE <= '0';
+					Ram_CAS <= '1';
+					Ram_RAS <= '0';
+					
+				when 12 =>
+					-- NOP
+					Ram_WE <= '1'; Ram_CAS <= '1'; Ram_RAS <= '1';
+					
+				when 13 =>
+>>>>>>> 40d288d7d79e1be06d9d1c0c8a838702118c9f4c
 					-- count up
 					byte_counter <= byte_counter + 1;
 					if (byte_counter = x"0FFFFF") then 
 							blink <= NOT blink;
 							byte_counter <= (others => '0');
 					end if;
+<<<<<<< HEAD
+=======
+					
+					-- prepare Row for next read
+>>>>>>> 40d288d7d79e1be06d9d1c0c8a838702118c9f4c
 					address_temp (13 downto 2) <= byte_counter(23 downto 12);		-- Row Address
 					address_temp (1 downto 0) <= byte_counter(1 downto 0);			-- Bank
 					ram_nops <= tRCD_CYCLES;

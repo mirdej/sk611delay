@@ -20,6 +20,9 @@ port (
 		ResetN 		: in  std_logic;
 		Loopthru	: in  std_logic;
 		
+		Data_from_AD 	: out  std_logic_vector (7 downto 0);
+		Data_to_DA 		: in  std_logic_vector (7 downto 0);
+
  		AD_Clk		: out std_logic;
 		AD_Input 	: in  std_logic_vector (7 downto 0);
 		
@@ -75,9 +78,11 @@ begin
 	AD_Clk <= clk_int;
 	DA_Clk <= not clk_int;
 	
+	Data_from_AD <= ad_data;
+	
 	with Loopthru select
 			da_data <= 	ad_data when '1',						-- loop through
-						"00111111" when '0',
+						Data_to_DA when '0',
 						"11111111" when others;
 
 end AD_DA_Arch;

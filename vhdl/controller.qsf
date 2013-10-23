@@ -130,10 +130,14 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to Encoder_A
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to Encoder_B
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to Encoder_C
 set_global_assignment -name SMART_RECOMPILE ON
+set_location_assignment PIN_18 -to Switch1
+set_global_assignment -name VHDL_FILE Ram_Control.vhd
 set_global_assignment -name VHDL_FILE AD_DA.vhd
 set_global_assignment -name VHDL_FILE Rotary_Encoder.vhd
 set_global_assignment -name VHDL_FILE Slow_Clock.vhd
 set_global_assignment -name VHDL_FILE Display.vhd
 set_global_assignment -name VHDL_FILE Counter.vhd
 set_global_assignment -name VHDL_FILE Top.vhd
-set_location_assignment PIN_18 -to Switch1
+set_global_assignment -name MAXII_OPTIMIZATION_TECHNIQUE AREA
+set_global_assignment -name ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP ON
+set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION ALWAYS

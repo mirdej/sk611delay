@@ -22,7 +22,6 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
 use ieee.numeric_std.all;
 use ieee.std_logic_unsigned.all;
 
@@ -32,7 +31,7 @@ entity Ram_Controller is
 		ResetN 		: in  std_logic;
 		
 		Write_Data		: in std_logic_vector (7 downto 0);
-		Read_Data		: out std_logic_vector (31 downto 0);
+		Read_Data		: out std_logic_vector (7 downto 0);
 		
 		Ram_Address : out std_logic_vector(13 downto 0);  -- 12 bits Address / 2 bits BANK
 		Ram_RAS		: out std_logic;
@@ -40,7 +39,7 @@ entity Ram_Controller is
 		Ram_WE		: out std_logic;
 		Ram_Data	: inout std_logic_vector(7 downto 0);
 		Ram_Clk		: out std_logic;
-		Ram_DQM		: out std_logic;
+		Ram_DQM		: out std_logic
 	);
 end entity;
 
@@ -106,9 +105,10 @@ signal address_temp			: std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bi
 signal byte_counter			: std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
 
 signal slow_clk				: std_logic;
+signal blink 			: std_logic;
 
-signal da_buf				: std_logic_vector (31 downto 0);
-signal ad_buf				: std_logic_vector (31 downto 0);
+signal da_buf				: std_logic_vector (7 downto 0);
+signal ad_buf				: std_logic_vector (7 downto 0);
 signal OEn					: std_logic;
 
 
@@ -134,8 +134,9 @@ begin
 			address_temp <= (others => '0');
 			byte_counter <= (others=>'0');
 
-			state <= init; 
-
+			ram_state <= init; 
+			ram_nops <= 0;
+			
 			Ram_CAS <= '0';
 			Ram_RAS <= '0';
 			Ram_WE <= '0';
@@ -213,14 +214,14 @@ begin
 				---------------------------------			
 				when activate =>
 					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '1';
-					LED2 <= '1';
+
 
 					-- count up
 					if (byte_counter = x"0FFFFF") then 
 							blink <= NOT blink;
 							byte_counter <= (others => '0');
 					else 
-							byte_counter <= std_logic_vector(unsigned(byte_counter) + 4);		-- 4 bytes per read
+							byte_counter <= std_logic_vector( unsigned(byte_counter) + 1);		-- 4 bytes per read
 					end if;
 
 
@@ -253,12 +254,15 @@ begin
 					ram_next_state <= ram_get_data;
 		
 			---------------------------------
-				-- Copy read data to DAC
+				-- Buffer read data
 				---------------------------------			
 				when ram_get_data =>
 					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
-					ram_state <= ram_write;
-
+					ram_nops <= 1;
+					ram_state <= nop;
+					ram_next_state <= ram_write;
+					da_buf <= Ram_Data;
+					
 				---------------------------------
 				-- Write
 				---------------------------------			
@@ -269,6 +273,7 @@ begin
 					ram_nops <= 1;
 					ram_state <= nop;
 					ram_next_state <= precharge;
+					Ram_Data <= ad_buf;
 					
 				when others => null;
 			end case;
@@ -278,5 +283,7 @@ begin
 	
 	Ram_clk <= not slow_clk;
 	Ram_Address <= address_temp;
+	ad_buf <= Write_Data;
+	Read_Data <= da_buf;
 
 end architecture Ram_Controller_arch;

@@ -129,9 +129,11 @@ set_location_assignment PIN_51 -to Encoder_C
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to Encoder_A
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to Encoder_B
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to Encoder_C
+set_global_assignment -name SMART_RECOMPILE ON
+set_global_assignment -name VHDL_FILE AD_DA.vhd
 set_global_assignment -name VHDL_FILE Rotary_Encoder.vhd
 set_global_assignment -name VHDL_FILE Slow_Clock.vhd
 set_global_assignment -name VHDL_FILE Display.vhd
 set_global_assignment -name VHDL_FILE Counter.vhd
 set_global_assignment -name VHDL_FILE Top.vhd
-set_global_assignment -name SMART_RECOMPILE ON
+set_location_assignment PIN_18 -to Switch1

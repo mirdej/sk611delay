@@ -21,12 +21,20 @@ entity Top is
 		Encoder_A		: in std_logic;
 		Encoder_B		: in std_logic;
 		Encoder_C		: in std_logic;
-		LED3			: out std_logic
+		Led1			: out std_logic;
+		Led2			: out std_logic;
+		Led3			: out std_logic;
+		AD_Clk			: out std_logic;
+		AD_Data 		: in  std_logic_vector (7 downto 0);
+		DA_Clk 			: out std_logic;
+		DA_Data 		: out std_logic_vector (7 downto 0);
+		Switch1			: in std_logic
 	);
 end entity;
 
 --------------------------------------------------------------------------------------------
 --																			ARCHITECTURE
+--------------------------------------------------------------------------------------------
 architecture Top_Arch of Top is
 
 -------------------------------------------------------------------------------  Display
@@ -73,6 +81,18 @@ component Rotary_Encoder is
 	);
 end component;
 
+-------------------------------------------------------------------------------  Analog Converters
+component AD_DA is
+port (
+		Clk    		: in  std_logic;
+		ResetN 		: in  std_logic;
+		Loopthru	: in  std_logic;
+		AD_Clk		: out std_logic;
+		AD_Input 	: in  std_logic_vector (7 downto 0);
+		DA_Clk 		: out std_logic;
+		DA_Out	 	: out std_logic_vector (7 downto 0)
+);
+end component;
 
 --------------------------------------------------------------------------------------------
 --																			Implementation
@@ -86,36 +106,36 @@ signal enc_step,enc_dir : std_logic;
 
 
 begin
-
+-------------------------------------------------------------------------------  Display
 	Display_Inst : Display
 	port map
 	(
-		Clk				=> slow_clk_int,
-		Number 			=> counter_int,
+		Clk					=> slow_clk_int,
+		Number 				=> counter_int,
 		To7seg_Cathodes		=> Display_C,
 		To7Seg_Anodes		=> Display_A
 	);
-	
+-------------------------------------------------------------------------------  Clock
 	Slow_Clock_Inst : Slow_Clock
 	port map
 	(
-		Clk			=> Clk,
-		ResetN		=> ResetN,
-		Ms1	  		=> slow_clk_int,
-		Ms40	  	=> pretty_slow_clk_int,
-		Ms500	  	=> very_slow_clk_int
+		Clk					=> Clk,
+		ResetN				=> ResetN,
+		Ms1	  				=> slow_clk_int,
+		Ms40	  			=> pretty_slow_clk_int,
+		Ms500	  			=> very_slow_clk_int
 	);
-
+-------------------------------------------------------------------------------  Counter
 	Counter_Inst : Counter
 	port map
 	(
-		Clk			=> enc_step,
-		ResetN		=> ResetN,
-		Count	  	=> counter_int,
-		Direction	=> enc_dir,
-		Highspeed	=> Encoder_C
+		Clk					=> enc_step,
+		ResetN				=> ResetN,
+		Count	  			=> counter_int,
+		Direction			=> enc_dir,
+		Highspeed			=> Encoder_C
 	);
-	
+-------------------------------------------------------------------------------  Rotary
 	Rotary_Inst : Rotary_Encoder
 	port map
 	(
@@ -125,7 +145,19 @@ begin
 		step				=> enc_step,
 		dir					=> enc_dir
 	);
-	
-	LED3 <= very_slow_clk_int;
+-------------------------------------------------------------------------------  AD-DA
+	AD_DA_Inst : AD_DA
+	port map
+	(
+		Clk					=> Clk,
+		ResetN				=> ResetN,
+		Loopthru			=> Switch1,
+		AD_Clk				=> AD_Clk,
+		AD_Input			=> AD_Data,
+		DA_Clk 				=> DA_Clk,
+		DA_Out				=> DA_Data
+	);
+-------------------------------------------------------------------------------  LEDs
+	LED3 					<= very_slow_clk_int;
 
 end Top_Arch;

@@ -28,7 +28,7 @@ end entity;
 architecture Rotary_Encoder_Arch of Rotary_Encoder is
 
 signal storA,storB		: std_logic_vector (1 downto 0);
-signal trigger 			:	std_logic;
+--signal trigger 			:	std_logic;
 signal dir_int,step_int : std_logic;
 
 begin
@@ -43,7 +43,7 @@ begin
   	  	end if;
 	end process;
 
-	process(trigger)
+	process(storA)
 	begin
 		step_int <= '0';
 		dir_int <= '0';
@@ -58,7 +58,7 @@ begin
 		end case;
 	end process;
 
-	trigger <= storA(1) xor storA(0);
+	--trigger <= storA(1) xor storA(0);
 	dir <= dir_int;
 	step <= step_int;
 	

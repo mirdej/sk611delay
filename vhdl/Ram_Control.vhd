@@ -81,7 +81,7 @@ architecture Ram_Controller_arch of Ram_Controller is
 	constant tRFC_CYCLES : NATURAL := tRFC / CLOCK_PERIOD;	 -- tRFC_time = tRFC_CYCLES + 1
 	constant tWR_CYCLES  : natural := tWR / CLOCK_PERIOD; 	 --	tWR_time = tWR_CYCLES + 1
 	--constant tSTARTUP_NOP_CYCLES : positive := 10;
-	constant tSTARTUP_NOP_CYCLES : positive := tSTARTUP_NOP / CLOCK_PERIOD;
+	constant tSTARTUP_NOP_CYCLES : positive := 8000;
 
 	constant CAS_LATENCY : positive := 3; 
 
@@ -113,13 +113,14 @@ signal blink 				: std_logic;
 
 signal write_buf			: std_logic_vector (7 downto 0);
 signal OEn					: std_logic;
+signal load_enable			: std_logic;
 
 signal read_buf			: std_logic_vector (7 downto 0);
 
 begin
 	-- ----------------------------------------------------------------- MASTER CLOCK 
 	--																	@ half speed : 156.250 Mhz / 2 => 78.125 Mhz
-	--																						12.8 ns periof
+	--																						12.8 ns period
 	process(Clk, ResetN)
 	begin
 		  if (ResetN	= '0') then
@@ -141,6 +142,7 @@ begin
 			ram_state <= init; 
 			ram_nops <= 0;
 			OEn <= '1';
+			load_enable <= '0';
 			blink <= '0';
 			
 			Ram_CAS <= '0';
@@ -182,11 +184,19 @@ begin
 					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '0';	 
 					ram_nops <= tRP_CYCLES;					
 					ram_state <= nop;
-					--address_temp(12) <= '1'; 			-- precharge all banks  (A10 = 1)
-					address_temp(12) <= '0'; 		
 					if (another_refresh = '1') then 		-- we're in startup sequence
+						address_temp(12) <= '1'; 			-- precharge all banks  (A10 = 1)
 						ram_next_state <= auto_refresh;
 					else
+						address_temp(12) <= '0'; 		
+					
+						-- count up
+						if (byte_counter = x"FFFFFF") then 
+								blink <= NOT blink;
+								byte_counter <= (others => '0');
+						else 
+								byte_counter <= std_logic_vector( unsigned(byte_counter) + 1);		
+						end if;
 						ram_next_state <= activate;
 					end if;
 					
@@ -223,14 +233,6 @@ begin
 				---------------------------------			
 				when activate =>
 					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '1';
-					
-					-- count up
-					if (byte_counter = x"FFFFFF") then 
-							blink <= NOT blink;
-							byte_counter <= (others => '0');
-					else 
-							byte_counter <= std_logic_vector( unsigned(byte_counter) + 1);		
-					end if;
 
 
 					-- prepare Row for next read
@@ -255,7 +257,7 @@ begin
 				---------------------------------			
 				when nop_dqm_down =>
 					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
-					ram_nops <= 1;
+					ram_nops <= 0;
 					ram_state <= nop;
 					ram_next_state <= ram_get_data;
 		
@@ -268,13 +270,13 @@ begin
 					--ram_state <= nop;
 					--ram_next_state <= toggle_OE;
 					Oszi_Trig <= '1';
-					Read_Data <= read_buf;
-					write_buf <= Write_Data;
+					load_enable <= '1';
 					ram_state <= toggle_OE;
 				
 				when toggle_OE =>
 					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
 					OEn <= '0';
+					load_enable <= '0';
 					ram_state <= ram_write;
 
 				---------------------------------
@@ -310,8 +312,18 @@ begin
 		end if;
 	end process;
 	
+	process(slow_clk, load_enable)
+	begin
+		if ((slow_clk'event) and (slow_clk = '0')) then
+			if (load_enable = '1') then
+				Read_Data <= read_buf;
+			end if;
+		end if;
+	end process;
+		
 	Ram_clk <= not slow_clk;
 	Ram_Address <= address_temp;
+	write_buf <= Write_Data;
 
 	Overflow <= blink;
 	

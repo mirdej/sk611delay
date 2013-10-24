@@ -105,7 +105,7 @@ set_location_assignment PIN_51 -to btn1
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
 set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH Top_vhd_tst -section_id eda_simulation
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"
-set_location_assignment PIN_5 -to Ram_DQM
+set_location_assignment PIN_15 -to Ram_DQM
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to ResetN
 set_instance_assignment -name GLOBAL_SIGNAL "GLOBAL CLOCK" -to Clk
 set_global_assignment -name EDA_TEST_BENCH_NAME Top_vhd_tst -section_id eda_simulation

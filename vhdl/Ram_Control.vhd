@@ -30,6 +30,8 @@ entity Ram_Controller is
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
 		
+		Overflow		: out std_logic;
+		
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
@@ -66,7 +68,7 @@ architecture Ram_Controller_arch of Ram_Controller is
 	constant tWR  : positive := CLOCK_PERIOD + 7; 
 	-- sdram initialization time
 	-- fo eg.: if 100 us sdram initialization is needed, tSTARTUP_NOP should be 100000 [ns]
-	constant tSTARTUP_NOP : positive := 100000;
+	constant tSTARTUP_NOP : positive := 100200;
 	
 	-- timing constants in cycles
 	-- actual cycles will be one cycle longer (every) because of state transition time (1 cycle time)
@@ -77,8 +79,8 @@ architecture Ram_Controller_arch of Ram_Controller is
 	constant tREF_CYCLES : natural := tREF / CLOCK_PERIOD;	 --	tREF_time = tREF_CYCLES + 1
 	constant tRFC_CYCLES : NATURAL := tRFC / CLOCK_PERIOD;	 -- tRFC_time = tRFC_CYCLES + 1
 	constant tWR_CYCLES  : natural := tWR / CLOCK_PERIOD; 	 --	tWR_time = tWR_CYCLES + 1
-	--constant tSTARTUP_NOP_CYCLES : positive := 10;-- tSTARTUP_NOP / (2*CLOCK_PERIOD);
-	constant tSTARTUP_NOP_CYCLES : positive := tSTARTUP_NOP / (2*CLOCK_PERIOD);
+	--constant tSTARTUP_NOP_CYCLES : positive := 10;
+	constant tSTARTUP_NOP_CYCLES : positive := tSTARTUP_NOP / CLOCK_PERIOD;
 
 	constant CAS_LATENCY : positive := 3; 
 
@@ -105,7 +107,7 @@ signal address_temp			: std_logic_vector(13 downto 0);	-- 12 bits Address / 2 bi
 signal byte_counter			: std_logic_vector(23 downto 0);   -- 12 bits ROW / 10 bits COL / 2 bits BANK - Total 24 Bits
 
 signal slow_clk				: std_logic;
-signal blink 			: std_logic;
+signal blink 				: std_logic;
 
 signal da_buf				: std_logic_vector (7 downto 0);
 signal ad_buf				: std_logic_vector (7 downto 0);
@@ -132,10 +134,11 @@ begin
 		if (ResetN	= '0') then			
 			ram_state <= init;
 			address_temp <= (others => '0');
-			byte_counter <= (others=>'0');
+			byte_counter <= (others => '0');
 
 			ram_state <= init; 
 			ram_nops <= 0;
+			OEn <= '1';
 			
 			Ram_CAS <= '0';
 			Ram_RAS <= '0';
@@ -202,8 +205,8 @@ begin
 				---------------------------------			
 				when set_mode_register =>
 					Ram_RAS <= '0';		Ram_CAS <= '0';		Ram_WE  <= '0'; 
-					address_temp <= (others=>'0');
-					address_temp (7 downto 6) <= "11";				-- set bits 5 and 4 of Mode register high for CAS latency of 3 
+					address_temp <= "00000011000000";
+				--	address_temp (7 downto 6) <= "11";				-- set bits 5 and 4 of Mode register high for CAS latency of 3 
 					ram_nops <= tMRD_CYCLES;
 					ram_state <= nop;
 					ram_next_state <= precharge;
@@ -214,20 +217,19 @@ begin
 				---------------------------------			
 				when activate =>
 					Ram_RAS <= '0';		Ram_CAS <= '1';		Ram_WE <= '1';
-
-
+					
 					-- count up
 					if (byte_counter = x"0FFFFF") then 
 							blink <= NOT blink;
 							byte_counter <= (others => '0');
 					else 
-							byte_counter <= std_logic_vector( unsigned(byte_counter) + 1);		-- 4 bytes per read
+							byte_counter <= std_logic_vector( unsigned(byte_counter) + 1);		
 					end if;
 
 
 					-- prepare Row for next read
-					address_temp (13 downto 2) 		<= byte_counter(23 downto 12);		-- Row Address
-					address_temp (1 downto 0) 		<= byte_counter(1 downto 0);			-- Bank
+					address_temp (13 downto 0) 		<= byte_counter(23 downto 12) & byte_counter(1 downto 0);		-- Row Address
+					--address_temp (1 downto 0) 		<= byte_counter(1 downto 0);			-- Bank
 					ram_nops <= tRCD_CYCLES;
 					ram_state <= nop;
 					ram_next_state <= ram_read;
@@ -239,11 +241,9 @@ begin
 					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '1';
 					Ram_DQM <= '0';
 					OEn <= '1';		-- disable output on data bus
-					address_temp (13 downto 12) <= "00";  											-- bit 10 needs to be 0 otherwise theres auto precharge
-					address_temp (11 downto 0) <= byte_counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
+					address_temp (13 downto 0) <= "00" & byte_counter (11 downto 0) ;						-- 9 Column bits + 2 Bank bits
 					ram_state <= nop_dqm_down;
 					
-
 				---------------------------------
 				-- Keep DQM down once
 				---------------------------------			
@@ -258,10 +258,10 @@ begin
 				---------------------------------			
 				when ram_get_data =>
 					Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
-					ram_nops <= 1;
-					ram_state <= nop;
-					ram_next_state <= ram_write;
-					da_buf <= Ram_Data;
+					--ram_nops <= 2;
+					--ram_state <= nop;
+					--ram_next_state <= ram_write;
+					ram_state <= ram_write;
 					
 				---------------------------------
 				-- Write
@@ -273,17 +273,37 @@ begin
 					ram_nops <= 1;
 					ram_state <= nop;
 					ram_next_state <= precharge;
-					Ram_Data <= ad_buf;
-					
+					--Ram_Data <= ad_buf;
+	
 				when others => null;
 			end case;
 		end if;		
 	end process ;
 	
+------------------------------------------------------------------------------Flip Flops for buffer
+	process (clk) 
+	begin
+		if (Clk'event and clk = '1') then
+			ad_buf <= Write_Data;
+			Read_Data <= da_buf;
+		end if;
+	end process;
+	
+------------------------------------------------------------------------------Tristate Buffer on Ram_Data
+	process (OEn, Ram_Data)
+	begin
+		if (OEn = '0') then
+			Ram_Data <= ad_buf;
+			da_buf <= Ram_Data;
+		else
+			Ram_Data <= "ZZZZZZZZ";
+			da_buf <= Ram_Data;
+		end if;
+	end process;
 	
 	Ram_clk <= not slow_clk;
 	Ram_Address <= address_temp;
-	ad_buf <= Write_Data;
-	Read_Data <= da_buf;
 
+	Overflow <= blink;
+	
 end architecture Ram_Controller_arch;

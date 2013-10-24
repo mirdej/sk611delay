@@ -107,7 +107,8 @@ component Ram_Controller is
 	port(
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
-		
+		Overflow		: out std_logic;
+
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
@@ -132,45 +133,7 @@ signal enc_step,enc_dir 			: std_logic;
 signal ad_buf,da_buf				: std_logic_vector(7 downto 0);
 
 begin
--------------------------------------------------------------------------------  Display
-	Display_Inst : Display
-	port map
-	(
-		Clk					=> slow_clk_int,
-		Number 				=> counter_int,
-		To7seg_Cathodes		=> Display_C,
-		To7Seg_Anodes		=> Display_A
-	);
--------------------------------------------------------------------------------  Clock
-	Slow_Clock_Inst : Slow_Clock
-	port map
-	(
-		Clk					=> Clk,
-		ResetN				=> ResetN,
-		Ms1	  				=> slow_clk_int,
-		Ms40	  			=> pretty_slow_clk_int,
-		Ms500	  			=> very_slow_clk_int
-	);
--------------------------------------------------------------------------------  Counter
-	Counter_Inst : Counter
-	port map
-	(
-		Clk					=> enc_step,
-		ResetN				=> ResetN,
-		Count	  			=> counter_int,
-		Direction			=> enc_dir,
-		Highspeed			=> Encoder_C
-	);
--------------------------------------------------------------------------------  Rotary
-	Rotary_Inst : Rotary_Encoder
-	port map
-	(
-		Clk					=> slow_clk_int,	-- sample every 1 ms
-		A					=> Encoder_A,
-		B					=> Encoder_B,
-		step				=> enc_step,
-		dir					=> enc_dir
-	);
+
 -------------------------------------------------------------------------------  AD-DA
 	AD_DA_Inst : AD_DA
 	port map
@@ -190,6 +153,7 @@ begin
 	port map(
 		Clk    				=> Clk,
 		ResetN 				=> ResetN,
+		Overflow			=> LED2,
 		Write_Data			=> ad_buf,
 		Read_Data			=> da_buf,
 		Ram_Address 		=> Ram_Address,
@@ -202,5 +166,7 @@ begin
 	);
 -------------------------------------------------------------------------------  LEDs
 	LED3 					<= very_slow_clk_int;
-
+	
+	Display_C <= "1111111";
+	
 end Top_Arch;

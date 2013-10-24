@@ -69,7 +69,7 @@ Loopthru	: in  std_logic;
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
-		top				: std_logic_vector(7 downto 0);
+		Reset_Counter	: in std_logic;
 		
 		Ram_Address : out std_logic_vector(13 downto 0);  -- 12 bits Address / 2 bits BANK
 		Ram_RAS		: out std_logic;
@@ -78,26 +78,6 @@ Loopthru	: in  std_logic;
 		Ram_Data	: inout std_logic_vector(7 downto 0);
 		Ram_Clk		: out std_logic;
 		Ram_DQM		: out std_logic
-	);
-end component;
--------------------------------------------------------------------------------  Counter
-component Counter is
-	port
-	(
-		Clk				: in std_logic;
-		ResetN			: in std_logic;
-		Direction		: in std_logic;
-		Highspeed		: in std_logic;
-		Count			: out std_logic_vector(7 downto 0)
-	);
-end component;
-
-component Rotary_Encoder is
-	port
-	(
-		Clk					: in std_logic;
-		A,B					: in std_logic;
-		step, dir			: out std_logic
 	);
 end component;
 
@@ -110,26 +90,6 @@ signal counter_int: std_logic_vector(7 downto 0);
 signal enc_step,enc_dir 			: std_logic;
 
 begin
--------------------------------------------------------------------------------  Counter
-	Counter_Inst : Counter
-	port map
-	(
-		Clk					=> enc_step,
-		ResetN				=> ResetN,
-		Count	  			=> counter_int,
-		Direction			=> enc_dir,
-		Highspeed			=> Encoder_C
-	);
--------------------------------------------------------------------------------  Rotary
-	Rotary_Inst : Rotary_Encoder
-	port map
-	(
-		Clk					=> Clk,	-- sample every 1 ms
-		A					=> Encoder_A,
-		B					=> Encoder_B,
-		step				=> enc_step,
-		dir					=> enc_dir
-	);
 -------------------------------------------------------------------------------  AD-DA
 	AD_DA_Inst : AD_DA
 	port map
@@ -150,8 +110,8 @@ begin
 		Clk    				=> Clk,
 		ResetN 				=> ResetN,
 		Overflow			=> LED2,
-		Oszi_Trig		 => 	LED3,
-		top				=> counter_int,
+		Oszi_Trig		 => 	LED1,
+		Reset_Counter	=> Encoder_C,
 			Loopthru			=> Switch1,
 		Write_Data			=> ad_buf,
 		Read_Data			=> da_buf,
@@ -167,5 +127,6 @@ begin
 	--LED3 					<= '1';--very_slow_clk_int;
 	
 	Display_C <= "1111111";
+	LED3 <= Encoder_C;
 	
 end Top_Arch;

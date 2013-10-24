@@ -33,7 +33,7 @@ entity Ram_Controller is
 		Oszi_Trig		: out std_logic;
 		Loopthru	: in  std_logic;
 				
-		top		: in std_logic_vector (7 downto 0);
+		Reset_Counter	: in std_logic;
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
@@ -116,8 +116,8 @@ signal write_buf			: std_logic_vector (7 downto 0);
 signal OEn					: std_logic;
 signal load_enable			: std_logic;
 
-signal read_buf			: std_logic_vector (7 downto 0);
-signal top_count : std_logic_vector (23 downto 0);
+signal read_buf				: std_logic_vector (7 downto 0);
+signal reset_buf 			: std_logic_vector(1 downto 0);
 
 begin
 	-- ----------------------------------------------------------------- MASTER CLOCK 
@@ -134,7 +134,7 @@ begin
 		
 		
 	-- ----------------------------------------------------------------- FINITE STATE MACHINE
-	process(slow_clk, ResetN)
+	process(slow_clk, ResetN,Reset_Counter)
 	begin
 		if (ResetN	= '0') then			
 			ram_state <= init;
@@ -193,12 +193,14 @@ begin
 						address_temp(12) <= '0'; 		
 					
 						-- count up
-						if (byte_counter = top_count) then 
-								blink <= NOT blink;
+						if (byte_counter = x"FFFFFF") then
 								byte_counter <= (others => '0');
-						else 
+						elsif (reset_buf = "10") then
+								byte_counter <= (others => '0');
+						else
 								byte_counter <= std_logic_vector( unsigned(byte_counter) + 1);		
 						end if;
+						
 						ram_next_state <= activate;
 					end if;
 					
@@ -285,7 +287,11 @@ begin
 				-- Write
 				---------------------------------			
 				when ram_write =>
-					Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '0';
+					if (Reset_Counter = '0') then
+						Ram_RAS <= '1';		Ram_CAS <= '0';		Ram_WE <= '0';
+					else
+						Ram_RAS <= '1';		Ram_CAS <= '1';		Ram_WE <= '1';			-- nop
+					end if;
 					Ram_DQM <= '0';
 					ram_nops <= 1;
 					ram_state <= nop;
@@ -322,13 +328,23 @@ begin
 			end if;
 		end if;
 	end process;
-		
+	
+	process(OEn, ResetN)
+	begin
+	if (ResetN = '0') then
+		reset_buf <= "00";
+	elsif ((OEn'event) and (OEn = '1')) then
+--			reset_buf(1) <= reset_buf(0);
+--			reset_buf(0) <= Reset_Counter;
+		end if;
+	end process;
+	
 	Ram_clk <= not slow_clk;
 	Ram_Address <= address_temp;
 	write_buf <= Write_Data;
 
 	Overflow <= blink;
 	
-	top_count <= "0000" & top & "000000000000";
+	--top_count <= "0000" & top & "000000000000";
 	
 end architecture Ram_Controller_arch;

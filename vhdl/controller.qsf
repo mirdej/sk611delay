@@ -140,3 +140,6 @@ set_global_assignment -name VHDL_FILE Top.vhd
 set_global_assignment -name MAXII_OPTIMIZATION_TECHNIQUE AREA
 set_global_assignment -name ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP ON
 set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION ALWAYS
+set_instance_assignment -name IO_STANDARD "3.3V SCHMITT TRIGGER INPUT" -to Encoder_C
+set_instance_assignment -name IO_STANDARD "3.3V SCHMITT TRIGGER INPUT" -to Encoder_B
+set_instance_assignment -name IO_STANDARD "3.3V SCHMITT TRIGGER INPUT" -to Encoder_A

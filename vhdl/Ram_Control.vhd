@@ -33,6 +33,7 @@ entity Ram_Controller is
 		Oszi_Trig		: out std_logic;
 		Loopthru	: in  std_logic;
 				
+		top		: in std_logic_vector (7 downto 0);
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
@@ -116,6 +117,7 @@ signal OEn					: std_logic;
 signal load_enable			: std_logic;
 
 signal read_buf			: std_logic_vector (7 downto 0);
+signal top_count : std_logic_vector (23 downto 0);
 
 begin
 	-- ----------------------------------------------------------------- MASTER CLOCK 
@@ -191,7 +193,7 @@ begin
 						address_temp(12) <= '0'; 		
 					
 						-- count up
-						if (byte_counter = x"FFFFFF") then 
+						if (byte_counter = top_count) then 
 								blink <= NOT blink;
 								byte_counter <= (others => '0');
 						else 
@@ -327,6 +329,6 @@ begin
 
 	Overflow <= blink;
 	
-
+	top_count <= "0000" & top & "000000000000";
 	
 end architecture Ram_Controller_arch;

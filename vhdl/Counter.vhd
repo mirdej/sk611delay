@@ -18,7 +18,7 @@ entity Counter is
 		ResetN			: in std_logic;
 		Direction		: in std_logic;
 		Highspeed		: in std_logic;
-		Count			: out std_logic_vector(9 downto 0)
+		Count			: out std_logic_vector(7 downto 0)
 	);
 end entity;
 
@@ -27,46 +27,30 @@ end entity;
 --																			ARCHITECTURE
 architecture Counter_Arch of Counter is
 
-signal counter : integer range 0 to 1000;
+signal counter : integer;
 
 begin
 	process(Clk, ResetN)
 	begin
 		if(ResetN = '0') then
-			counter <= 0;
+			counter <= 128;
 		elsif((Clk'event) and (Clk = '1')) then
 			if (Highspeed ='0') then
 				if (Direction = '0') then
-					if (counter > 989) then
-						counter <= 999;
-					else 
-						counter <= counter + 10;
-					end if;
+					counter <= counter + 10;
 				else
-					if (counter < 10) then
-						counter <= 0;
-					else 
-						counter <= counter - 10;
-					end if;
+					counter <= counter - 10;
 				end if;
 			else 
 				if (Direction = '0') then
-					if (counter = 999) then
-						counter <= 999;
-					else 
-						counter <= counter + 1;
-					end if;
+					counter <= counter + 1;
 				else
-					if (counter = 0) then
-						counter <= 0;
-					else 
-						counter <= counter - 1;
-					end if;
+					counter <= counter - 1;
 				end if;
 			end if;
 		end if;
 	end process;
 	
-	Count <= std_logic_vector(to_unsigned(counter,10));
+        Count <= std_logic_vector(to_unsigned(counter,8));
 	
 end Counter_Arch;

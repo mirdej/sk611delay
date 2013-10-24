@@ -101,7 +101,6 @@ set_location_assignment PIN_97 -to Ram_WE
 set_location_assignment PIN_4 -to Ram_Clk
 set_location_assignment PIN_3 -to Ram_Address[1]
 set_location_assignment PIN_2 -to Ram_Address[0]
-set_location_assignment PIN_51 -to btn1
 set_global_assignment -name EDA_TEST_BENCH_ENABLE_STATUS TEST_BENCH_MODE -section_id eda_simulation
 set_global_assignment -name EDA_NATIVELINK_SIMULATION_TEST_BENCH Top_vhd_tst -section_id eda_simulation
 set_global_assignment -name POWER_PRESET_COOLING_SOLUTION "NO HEAT SINK WITH STILL AIR"

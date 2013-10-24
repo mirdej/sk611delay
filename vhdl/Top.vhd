@@ -43,56 +43,12 @@ end entity;
 --------------------------------------------------------------------------------------------
 architecture Top_Arch of Top is
 
--------------------------------------------------------------------------------  Display
-component Display is
-	port
-	(
-		Clk					: in std_logic;
-		Number				: in std_logic_vector (9 downto 0);
-		To7seg_Cathodes		: out std_logic_vector (6 downto 0);
-		To7Seg_Anodes		: out std_logic_vector (2 downto 0)
-	);
-end component;
-
--------------------------------------------------------------------------------  150 Hz Clock
-component Slow_Clock is
-	port
-	(
-		Clk				: in std_logic;
-		ResetN			: in std_logic;
-		Ms1				: out std_logic;		-- 1 ms clock cycle			/  	  1000 Hz
-		Ms40			: out std_logic;		-- 40 ms clock cycle		/	    25 Hz
-		Ms500			: out std_logic			-- 2 hz
-	);
-end component;
-
--------------------------------------------------------------------------------  Counter
-component Counter is
-	port
-	(
-		Clk				: in std_logic;
-		ResetN			: in std_logic;
-		Direction		: in std_logic;
-		Highspeed		: in std_logic;
-		Count			: out std_logic_vector(9 downto 0)
-	);
-end component;
-
-component Rotary_Encoder is
-	port
-	(
-		Clk					: in std_logic;
-		A,B					: in std_logic;
-		step, dir			: out std_logic
-	);
-end component;
-
 -------------------------------------------------------------------------------  Analog Converters
 component AD_DA is
 port (
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
-		Loopthru	: in  std_logic;
+		--Loopthru	: in  std_logic;
 		Data_from_AD 	: out  std_logic_vector (7 downto 0);
 		Data_to_DA 		: in  std_logic_vector (7 downto 0);
 		AD_Clk		: out std_logic;
@@ -101,13 +57,15 @@ port (
 		DA_Out	 	: out std_logic_vector (7 downto 0)
 );
 end component;
--------------------------------------------------------------------------------  Analog Converters
+-------------------------------------------------------------------------------  SDRAM
 component Ram_Controller is
 	port(
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
 		Overflow		: out std_logic;
+				Oszi_Trig		: out std_logic;
 
+Loopthru	: in  std_logic;
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
@@ -124,11 +82,6 @@ end component;
 --																			Implementation
 --------------------------------------------------------------------------------------------
 
-signal slow_clk_int					: std_logic;
-signal pretty_slow_clk_int			: std_logic;
-signal very_slow_clk_int			: std_logic;
-signal counter_int					: std_logic_vector(9 downto 0);
-signal enc_step,enc_dir 			: std_logic;
 signal ad_buf,da_buf				: std_logic_vector(7 downto 0);
 
 begin
@@ -137,9 +90,9 @@ begin
 	AD_DA_Inst : AD_DA
 	port map
 	(
-		Clk					=> Clk,
+		Clk					=> Clk,			--156.25 MHz
 		ResetN				=> ResetN,
-		Loopthru			=> Switch1,
+	--	Loopthru			=> Switch1,
 		Data_from_AD		=> ad_buf,
 		Data_to_DA			=> da_buf, 
 		AD_Clk				=> AD_Clk,
@@ -153,6 +106,9 @@ begin
 		Clk    				=> Clk,
 		ResetN 				=> ResetN,
 		Overflow			=> LED2,
+		Oszi_Trig		 => 	LED3,
+
+			Loopthru			=> Switch1,
 		Write_Data			=> ad_buf,
 		Read_Data			=> da_buf,
 		Ram_Address 		=> Ram_Address,
@@ -164,7 +120,7 @@ begin
 		Ram_DQM				=> Ram_DQM
 	);
 -------------------------------------------------------------------------------  LEDs
-	LED3 					<= very_slow_clk_int;
+	--LED3 					<= '1';--very_slow_clk_int;
 	
 	Display_C <= "1111111";
 	

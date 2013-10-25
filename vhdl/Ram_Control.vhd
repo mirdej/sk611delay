@@ -31,7 +31,7 @@ entity Ram_Controller is
 		
 		Overflow		: out std_logic;
 		Oszi_Trig		: out std_logic;
-		Loopthru	: in  std_logic;
+--		Loopthru	: in  std_logic;
 				
 		Reset_Counter	: in std_logic;
 		Write_Data		: in std_logic_vector (7 downto 0);
@@ -304,27 +304,26 @@ begin
 	end process ;
 	
 ------------------------------------------------------------------------------Tristate Buffer on Ram_Data
-	process(Loopthru, Ram_Data, OEn)
+	process(Ram_Data, OEn)
 	begin
-		if (Loopthru = '1') then
-			Ram_Data <= "ZZZZZZZZ";
-			read_buf <= write_buf;
-		else
-			if (OEn = '1') then
-				Ram_Data <= "ZZZZZZZZ";
-				read_buf <= Ram_Data;
-			else
-				Ram_Data <= write_buf;
-				read_buf <= Ram_Data;
-			end if;
-		end if;
+	   if (OEn = '1') then
+		   Ram_Data <= "ZZZZZZZZ";
+		   read_buf <= Ram_Data;
+	   else
+		   Ram_Data <= write_buf;
+		   read_buf <= Ram_Data;
+	   end if;
 	end process;
 	
 	process(slow_clk, load_enable)
 	begin
 		if ((slow_clk'event) and (slow_clk = '0')) then
 			if (load_enable = '1') then
-				Read_Data <= read_buf;
+				if (Reset_Counter = '0') then
+					Read_Data <= Write_Data;			-- show live out when recording
+				else
+					Read_Data <= read_buf;
+				end if;
 			end if;
 		end if;
 	end process;

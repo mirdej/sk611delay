@@ -48,7 +48,7 @@ component AD_DA is
 port (
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
-		--Loopthru	: in  std_logic;
+		Loopthru	: in  std_logic;
 		Data_from_AD 	: out  std_logic_vector (7 downto 0);
 		Data_to_DA 		: in  std_logic_vector (7 downto 0);
 		AD_Clk		: out std_logic;
@@ -65,7 +65,7 @@ component Ram_Controller is
 		Overflow		: out std_logic;
 				Oszi_Trig		: out std_logic;
 
-Loopthru	: in  std_logic;
+--Loopthru	: in  std_logic;
 		Write_Data		: in std_logic_vector (7 downto 0);
 		Read_Data		: out std_logic_vector (7 downto 0);
 		
@@ -96,7 +96,7 @@ begin
 	(
 		Clk					=> Clk,			--156.25 MHz
 		ResetN				=> ResetN,
-	--	Loopthru			=> Switch1,
+		Loopthru			=> Switch1,
 		Data_from_AD		=> ad_buf,
 		Data_to_DA			=> da_buf, 
 		AD_Clk				=> AD_Clk,
@@ -112,7 +112,7 @@ begin
 		Overflow			=> LED2,
 		Oszi_Trig		 => 	LED1,
 		Reset_Counter	=> Encoder_C,
-			Loopthru			=> Switch1,
+	--		Loopthru			=> Switch1,
 		Write_Data			=> ad_buf,
 		Read_Data			=> da_buf,
 		Ram_Address 		=> Ram_Address,

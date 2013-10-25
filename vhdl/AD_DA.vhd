@@ -16,7 +16,7 @@ entity AD_DA is
 port (
 		Clk    		: in  std_logic;
 		ResetN 		: in  std_logic;
---		Loopthru	: in  std_logic;
+ 		Loopthru	: in  std_logic;
 		
 		Data_from_AD 	: out  std_logic_vector (7 downto 0);
 		Data_to_DA 		: in  std_logic_vector (7 downto 0);
@@ -77,11 +77,11 @@ begin
 	DA_Clk <= not clk_int;
 	
 	Data_from_AD <= ad_data;
-	da_data <= Data_to_DA;
+--	da_data <= Data_to_DA;
 	
---	with Loopthru select
---			da_data <= 	ad_data when '1',						-- loop through
---						Data_to_DA when '0',
---						"11111111" when others;
+	with Loopthru select
+			da_data <= 	ad_data when '1',						-- loop through
+						Data_to_DA when '0',
+						"11111111" when others;
 
 end AD_DA_Arch;
